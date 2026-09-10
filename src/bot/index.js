@@ -18,9 +18,9 @@ async function generateUniqueCode() {
   return code;
 }
 
-async function checkMembership(ctx) {
+async function checkMembership(userId, telegram) {
   try {
-    const member = await ctx.telegram.getChatMember(GROUP_ID, ctx.from.id);
+    const member = await telegram.getChatMember(GROUP_ID, userId);
     return ['member', 'administrator', 'creator'].includes(member.status);
   } catch (e) {
     return false;
@@ -33,7 +33,7 @@ async function sendMainMenu(ctx) {
     buttons.push([Markup.button.callback('➕ Yangi test yaratish', 'new_test')]);
     buttons.push([Markup.button.callback('📋 Testlarim', 'my_tests')]);
   }
-  const isMember = await checkMembership(ctx);
+  const isMember = await checkMembership(ctx.from.id, ctx.telegram);
   if (isMember) {
     buttons.push([Markup.button.webApp('🧪 Test ishlash', PUBLIC_URL)]);
     await ctx.reply('Assalomu alaykum! Attestatsiya test botiga xush kelibsiz.', Markup.inlineKeyboard(buttons));
@@ -144,4 +144,4 @@ bot.action(/natijalar_(\d+)/, async (ctx) => {
   await ctx.reply(msg);
 });
 
-module.exports = { bot };
+module.exports = { bot, checkMembership };
