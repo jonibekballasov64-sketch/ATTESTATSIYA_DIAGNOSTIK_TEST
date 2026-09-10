@@ -1,0 +1,2 @@
+# ATTESTATSIYA_DIAGNOSTIK_TEST
+Attestatsiya testi
