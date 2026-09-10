@@ -5,7 +5,7 @@ const { validateInitData } = require('../utils/validateInitData');
 const { computeScore, tierMessage } = require('../utils/scoring');
 const { BOT_TOKEN, ADMIN_ID, TEST_DURATION_MIN, MAX_ATTEMPTS, PUBLIC_URL } = require('../config');
 
-function createApp(bot) {
+function createApp(bot, checkMembership) {
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, '..', '..', 'public')));
@@ -19,6 +19,9 @@ function createApp(bot) {
   }
 
   app.post('/api/attempt/start', auth, async (req, res) => {
+    const isMember = await checkMembership(req.tgUser.id, bot.telegram);
+    if (!isMember) return res.status(403).json({ error: 'not_group_member' });
+
     const { code, fullName, toifa } = req.body;
     if (!code || !fullName || !toifa) return res.status(400).json({ error: 'missing_fields' });
     const testR = await pool.query('SELECT * FROM tests WHERE code=$1', [code.toUpperCase().trim()]);
