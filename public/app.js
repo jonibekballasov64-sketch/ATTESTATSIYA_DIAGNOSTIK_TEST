@@ -80,6 +80,7 @@ function renderRegister() {
       startBtn.disabled = false;
       if (e.message === 'test_not_found') tg.showAlert('Bunday kodli test topilmadi.');
       else if (e.message === 'max_attempts_reached') tg.showAlert("Siz bu testni 2 marta ishlab bo'ldingiz.");
+      else if (e.message === 'not_group_member') tg.showAlert("Siz kerakli guruh a'zosi emassiz, shuning uchun test ishlay olmaysiz.");
       else tg.showAlert('Xatolik yuz berdi: ' + e.message);
     }
   };
