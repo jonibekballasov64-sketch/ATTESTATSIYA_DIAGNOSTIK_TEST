@@ -28,14 +28,40 @@ function createApp(bot, checkMembership) {
     if (testR.rowCount === 0) return res.status(404).json({ error: 'test_not_found' });
     const test = testR.rows[0];
 
-    const countR = await pool.query(
+    // Agar tugallanmagan (in-progress), muddati tugamagan urinish bo'lsa — o'shani davom ettiramiz
+    const inProgressR = await pool.query(
+      `SELECT id, expires_at, attempt_number FROM attempts
+       WHERE test_id=$1 AND telegram_user_id=$2 AND status='in_progress' AND expires_at > NOW()
+       ORDER BY started_at DESC LIMIT 1`,
+      [test.id, req.tgUser.id]
+    );
+    if (inProgressR.rowCount > 0) {
+      const existing = inProgressR.rows[0];
+      return res.json({
+        attemptId: existing.id,
+        expiresAt: existing.expires_at,
+        attemptNumber: existing.attempt_number,
+        totalQuestions: test.questions.length,
+        resumed: true,
+      });
+    }
+
+    const isAdmin = req.tgUser.id === ADMIN_ID;
+    if (!isAdmin) {
+      const finishedCountR = await pool.query(
+        `SELECT COUNT(*)::int AS c FROM attempts WHERE test_id=$1 AND telegram_user_id=$2 AND status='finished'`,
+        [test.id, req.tgUser.id]
+      );
+      if (finishedCountR.rows[0].c >= MAX_ATTEMPTS) {
+        return res.status(403).json({ error: 'max_attempts_reached' });
+      }
+    }
+
+    const attemptCountR = await pool.query(
       'SELECT COUNT(*)::int AS c FROM attempts WHERE test_id=$1 AND telegram_user_id=$2',
       [test.id, req.tgUser.id]
     );
-    if (countR.rows[0].c >= MAX_ATTEMPTS) {
-      return res.status(403).json({ error: 'max_attempts_reached' });
-    }
-    const attemptNumber = countR.rows[0].c + 1;
+    const attemptNumber = attemptCountR.rows[0].c + 1;
     const expiresAt = new Date(Date.now() + TEST_DURATION_MIN * 60 * 1000);
 
     const insR = await pool.query(
