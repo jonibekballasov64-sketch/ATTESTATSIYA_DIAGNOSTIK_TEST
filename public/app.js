@@ -197,7 +197,7 @@ function renderTest() {
 async function doFinish() {
   clearInterval(state.timerInterval);
   try {
-    const res = await api(`/api/attempt/${state.attemptId}/finish`, 'POST');
+    const res = await api(`/api/attempt/${state.attemptId}/finish`, 'POST', {});
     renderResult(res.score, res.tierText);
   } catch (e) {
     tg.showAlert('Xatolik: ' + e.message);
