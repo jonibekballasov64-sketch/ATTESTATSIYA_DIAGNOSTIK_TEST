@@ -6,6 +6,22 @@ function stripTags(html) {
   return html.replace(/<[^>]+>/g, '').trim();
 }
 
+function cleanHeader(headerRaw) {
+  return headerRaw
+    .replace(/^\s*\d+\s*-\s*savol\.?\s*/i, '')
+    .replace(/^\s*\d+\s*[-.)]\s*/i, '')
+    .trim();
+}
+
+function extractCorrectLetter(answerHtml, options) {
+  const plain = stripTags(answerHtml).trim();
+  const cleaned = plain.replace(/^\s*(to'g'ri\s*javob|javobi|javob)\s*[:\-]?\s*/i, '').trim();
+  const letterMatch = cleaned.match(/^([A-D])\b/i);
+  if (letterMatch) return letterMatch[1].toUpperCase();
+  const found = options.find(o => stripTags(o.html).toLowerCase() === cleaned.toLowerCase());
+  return found ? found.letter : null;
+}
+
 function parseTest(rawHtml) {
   const text = stripVS(rawHtml);
 
@@ -33,7 +49,7 @@ function parseTest(rawHtml) {
     const optIdx = chunk.indexOf('🔷');
     if (optIdx === -1) throw new Error(`${num}-savolda variantlar (🔷) topilmadi`);
     const headerRaw = chunk.slice(0, optIdx).trim();
-    const header = headerRaw.replace(/^\s*\d+[.).]?\s*/, '').trim();
+    const header = cleanHeader(headerRaw);
     const rest = chunk.slice(optIdx);
     const optionParts = rest.split('🔷').filter(s => s.trim().length > 0);
     if (optionParts.length < 4) throw new Error(`${num}-savolda 4 ta variant bo'lishi kerak, topildi: ${optionParts.length}`);
@@ -53,16 +69,7 @@ function parseTest(rawHtml) {
       html: t.replace(/^\s*[A-D][).]?\s*/, '').trim(),
     }));
 
-    answerText = answerText.trim();
-    let correctLetter = null;
-    const letterMatch = answerText.match(/^([A-D])\b/);
-    if (letterMatch) {
-      correctLetter = letterMatch[1];
-    } else {
-      const plain = stripTags(answerText).toLowerCase();
-      const found = options.find(o => stripTags(o.html).toLowerCase() === plain);
-      if (found) correctLetter = found.letter;
-    }
+    const correctLetter = extractCorrectLetter(answerText, options);
     if (!correctLetter) throw new Error(`${num}-savolda to'g'ri javobni aniqlab bo'lmadi: "${stripTags(answerText).slice(0, 50)}"`);
 
     return {
