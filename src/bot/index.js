@@ -27,6 +27,14 @@ async function checkMembership(userId, telegram) {
   }
 }
 
+// Bot faqat shaxsiy chatdagi xabarlarga munosabat bildiradi, guruhga aralashmaydi
+bot.use(async (ctx, next) => {
+  if (ctx.chat && ctx.chat.type !== 'private') {
+    return; // guruh/kanal xabarlarini butunlay e'tiborsiz qoldiradi
+  }
+  return next();
+});
+
 async function sendMainMenu(ctx) {
   const buttons = [];
   if (ctx.from.id === ADMIN_ID) {
