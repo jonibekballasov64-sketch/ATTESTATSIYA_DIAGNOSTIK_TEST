@@ -16,7 +16,7 @@ function cleanHeader(headerRaw) {
 function applyMarkdown(html) {
   if (!html) return html;
   let out = html.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
-  out = out.replace(/__([\s\S]+?)__/g, '<i>$1</i>');
+  out = out.replace(/__([\s\S]+?)__/g, '<span class="hl">$1</span>');
   return out;
 }
 
