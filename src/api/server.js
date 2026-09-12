@@ -2,7 +2,7 @@ const path = require('path');
 const express = require('express');
 const { pool } = require('../db');
 const { validateInitData } = require('../utils/validateInitData');
-const { computeScore, tierMessage } = require('../utils/scoring');
+const { computeResult, tierMessage } = require('../utils/scoring');
 const { BOT_TOKEN, ADMIN_ID, TEST_DURATION_MIN, MAX_ATTEMPTS, PUBLIC_URL } = require('../config');
 
 function createApp(bot, checkMembership) {
@@ -132,8 +132,11 @@ function createApp(bot, checkMembership) {
     );
     if (r.rowCount === 0) return null;
     const a = r.rows[0];
-    if (a.status === 'finished') return a;
-    const score = computeScore({ questions: a.questions }, a.answers);
+    if (a.status === 'finished') {
+      const { correct, total } = computeResult({ questions: a.questions }, a.answers);
+      return { ...a, correct, total };
+    }
+    const { correct, total, score } = computeResult({ questions: a.questions }, a.answers);
     await pool.query(
       `UPDATE attempts SET status='finished', finished_at=NOW(), score=$1 WHERE id=$2`,
       [score, attemptId]
@@ -143,16 +146,16 @@ function createApp(bot, checkMembership) {
       const officialTag = a.attempt_number === 1 ? "Rasmiy natija (1-urinish)" : `${a.attempt_number}-urinish (qo'shimcha)`;
       botTelegram.sendMessage(
         ADMIN_ID,
-        `📊 Yangi natija!\n\n👤 ${a.full_name}\n📌 ${a.title}\n🎯 Toifa: ${a.toifa_target}\n🏅 Ball: ${score}/100\n${officialTag}`,
+        `📊 Yangi natija!\n\n👤 ${a.full_name}\n📌 ${a.title}\n🎯 Toifa: ${a.toifa_target}\n✅ To'g'ri javoblar: ${correct}/${total}\n🏅 Ball: ${score}/100\n${officialTag}`,
         { reply_markup: { inline_keyboard: [[{ text: "📊 Tahlil va javoblarni ko'rish", web_app: { url: `${PUBLIC_URL}/?screen=review&attempt=${attemptId}` } }]] } }
       ).catch(() => {});
       botTelegram.sendMessage(
         a.telegram_user_id,
-        `✅ Test yakunlandi!\n\n👤 ${a.full_name}\n🎯 Maqsad toifa: ${a.toifa_target}\n🔁 Urinish: ${a.attempt_number}/2\n🏅 Natija: ${score}/100 ball\n\n${tier.text}`,
+        `✅ Test yakunlandi!\n\n👤 ${a.full_name}\n🎯 Maqsad toifa: ${a.toifa_target}\n🔁 Urinish: ${a.attempt_number}/2\n✅ To'g'ri javoblar soni: ${correct}/${total}\n🏅 Umumiy to'plangan ball: ${score}/100\n\n${tier.text}`,
         { reply_markup: { inline_keyboard: [[{ text: "📊 Tahlil va javoblarni ko'rish", web_app: { url: `${PUBLIC_URL}/?screen=review&attempt=${attemptId}` } }]] } }
       ).catch(() => {});
     }
-    return { ...a, status: 'finished', score };
+    return { ...a, status: 'finished', score, correct, total };
   }
 
   app.post('/api/attempt/:id/finish', auth, async (req, res) => {
@@ -161,7 +164,7 @@ function createApp(bot, checkMembership) {
     if (Number(r.rows[0].telegram_user_id) !== Number(req.tgUser.id)) return res.status(403).json({ error: 'forbidden' });
     const a = await finishAttempt(req.params.id, bot.telegram);
     const tier = tierMessage(a.score);
-    res.json({ score: a.score, tierText: tier.text });
+    res.json({ score: a.score, tierText: tier.text, correctCount: a.correct, totalQuestions: a.total });
   });
 
   app.get('/api/attempt/:id/review', async (req, res) => {
