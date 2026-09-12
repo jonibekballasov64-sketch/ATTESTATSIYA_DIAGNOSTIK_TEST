@@ -119,9 +119,9 @@ function renderTest() {
   const timerEl = el('div', 'timer', '');
   const finishBtn = el('button', 'finish-btn-small', 'Yakunlash');
   finishBtn.onclick = () => {
-    tg.showConfirm("Testni yakunlashni tasdiqlaysizmi?", async (ok) => {
-      if (ok) await doFinish();
-    });
+    if (window.confirm("Testni yakunlashni tasdiqlaysizmi?")) {
+      doFinish();
+    }
   };
   topBar.appendChild(timerEl);
   topBar.appendChild(finishBtn);
@@ -198,18 +198,21 @@ async function doFinish() {
   clearInterval(state.timerInterval);
   try {
     const res = await api(`/api/attempt/${state.attemptId}/finish`, 'POST', {});
-    renderResult(res.score, res.tierText);
+    renderResult(res.score, res.tierText, res.correctCount, res.totalQuestions);
   } catch (e) {
     tg.showAlert('Xatolik: ' + e.message);
   }
 }
 
-function renderResult(score, tierText) {
+function renderResult(score, tierText, correctCount, totalQuestions) {
   app.innerHTML = '';
   const wrap = el('div', 'screen result');
   wrap.appendChild(el('h2', '', 'Test yakunlandi'));
   wrap.appendChild(el('div', 'score', `${score}/100`));
-  wrap.appendChild(el('div', 'tier-text', tierText));
+  wrap.appendChild(el('div', 'result-stats',
+    `To'g'ri javoblar soni: <b>${correctCount}/${totalQuestions}</b><br>Umumiy to'plangan ball: <b>${score}/100</b>`
+  ));
+  wrap.appendChild(el('div', 'tier-text', tierText.replace(/\n/g, '<br>')));
   const reviewBtn = el('button', 'primary-btn', "📊 Tahlil va javoblarni ko'rish");
   reviewBtn.onclick = () => renderReview(state.attemptId);
   wrap.appendChild(reviewBtn);
