@@ -110,6 +110,12 @@ function textForQuestion(num) {
   return null;
 }
 
+function getUnansweredNumbers() {
+  return state.questions
+    .map(q => q.number)
+    .filter(num => !state.answers[String(num)]);
+}
+
 function renderTest() {
   clearInterval(state.timerInterval);
   app.innerHTML = '';
@@ -119,6 +125,17 @@ function renderTest() {
   const timerEl = el('div', 'timer', '');
   const finishBtn = el('button', 'finish-btn-small', 'Yakunlash');
   finishBtn.onclick = () => {
+    const unanswered = getUnansweredNumbers();
+    if (unanswered.length > 0) {
+      const listStr = unanswered.join(', ');
+      const warnMsg = unanswered.length === 1
+        ? `Diqqat! ${listStr}-savol belgilanmagan. Haqiqatdan yakunlamoqchimisiz?`
+        : `Diqqat! ${listStr}-savollar belgilanmagan. Haqiqatdan yakunlamoqchimisiz?`;
+      if (window.confirm(warnMsg)) {
+        doFinish();
+      }
+      return;
+    }
     if (window.confirm("Testni yakunlashni tasdiqlaysizmi?")) {
       doFinish();
     }
