@@ -13,6 +13,20 @@ function cleanHeader(headerRaw) {
     .trim();
 }
 
+function applyMarkdown(html) {
+  if (!html) return html;
+  let out = html.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
+  out = out.replace(/__([\s\S]+?)__/g, '<i>$1</i>');
+  return out;
+}
+
+function wrapParagraphs(html) {
+  if (!html) return html;
+  const parts = html.split(/(?:<br>\s*){2,}/i).map(p => p.trim()).filter(Boolean);
+  if (parts.length === 0) return html;
+  return parts.map(p => `<p>${p}</p>`).join('');
+}
+
 function extractCorrectLetter(answerHtml, options) {
   const plain = stripTags(answerHtml).trim();
   const cleaned = plain.replace(/^\s*(to'g'ri\s*javob|javobi|javob)\s*[:\-]?\s*/i, '').trim();
@@ -49,7 +63,7 @@ function parseTest(rawHtml) {
     const optIdx = chunk.indexOf('🔷');
     if (optIdx === -1) throw new Error(`${num}-savolda variantlar (🔷) topilmadi`);
     const headerRaw = chunk.slice(0, optIdx).trim();
-    const header = cleanHeader(headerRaw);
+    const header = applyMarkdown(cleanHeader(headerRaw));
     const rest = chunk.slice(optIdx);
     const optionParts = rest.split('🔷').filter(s => s.trim().length > 0);
     if (optionParts.length < 4) throw new Error(`${num}-savolda 4 ta variant bo'lishi kerak, topildi: ${optionParts.length}`);
@@ -66,7 +80,7 @@ function parseTest(rawHtml) {
     const optionTexts = [optionParts[0], optionParts[1], optionParts[2], optionDText];
     const options = optionTexts.map((t, i) => ({
       letter: letters[i],
-      html: t.replace(/^\s*[A-D][).]?\s*/, '').trim(),
+      html: applyMarkdown(t.replace(/^\s*[A-D][).]?\s*/, '').trim()),
     }));
 
     const correctLetter = extractCorrectLetter(answerText, options);
@@ -77,13 +91,13 @@ function parseTest(rawHtml) {
       html: header,
       options,
       correctLetter,
-      explanationHtml: explanationHtml || null,
+      explanationHtml: explanationHtml ? applyMarkdown(explanationHtml) : null,
     };
   });
 
   return {
-    textA: { html: textA, range: [1, 5] },
-    textB: { html: textB, range: [21, 25] },
+    textA: { html: wrapParagraphs(applyMarkdown(textA)), range: [1, 5] },
+    textB: { html: wrapParagraphs(applyMarkdown(textB)), range: [21, 25] },
     questions,
   };
 }
