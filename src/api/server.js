@@ -28,7 +28,6 @@ function createApp(bot, checkMembership) {
     if (testR.rowCount === 0) return res.status(404).json({ error: 'test_not_found' });
     const test = testR.rows[0];
 
-    // Agar tugallanmagan (in-progress), muddati tugamagan urinish bo'lsa — o'shani davom ettiramiz
     const inProgressR = await pool.query(
       `SELECT id, expires_at, attempt_number FROM attempts
        WHERE test_id=$1 AND telegram_user_id=$2 AND status='in_progress' AND expires_at > NOW()
@@ -89,7 +88,7 @@ function createApp(bot, checkMembership) {
     );
     if (r.rowCount === 0) return res.status(404).json({ error: 'not_found' });
     const a = r.rows[0];
-    if (a.telegram_user_id !== user.id && user.id !== ADMIN_ID) {
+    if (Number(a.telegram_user_id) !== Number(user.id) && user.id !== ADMIN_ID) {
       return res.status(403).json({ error: 'forbidden' });
     }
     const publicQuestions = a.questions.map(q => ({
@@ -115,7 +114,7 @@ function createApp(bot, checkMembership) {
     const r = await pool.query('SELECT * FROM attempts WHERE id=$1', [req.params.id]);
     if (r.rowCount === 0) return res.status(404).json({ error: 'not_found' });
     const a = r.rows[0];
-    if (a.telegram_user_id !== req.tgUser.id) return res.status(403).json({ error: 'forbidden' });
+    if (Number(a.telegram_user_id) !== Number(req.tgUser.id)) return res.status(403).json({ error: 'forbidden' });
     if (a.status !== 'in_progress') return res.status(400).json({ error: 'already_finished' });
     if (new Date(a.expires_at) < new Date()) return res.status(400).json({ error: 'expired' });
 
@@ -149,7 +148,7 @@ function createApp(bot, checkMembership) {
       ).catch(() => {});
       botTelegram.sendMessage(
         a.telegram_user_id,
-        `✅ Test yakunlandi!\n\n🏅 Natija: ${score}/100 ball\n${tier.text}`,
+        `✅ Test yakunlandi!\n\n👤 ${a.full_name}\n🎯 Maqsad toifa: ${a.toifa_target}\n🔁 Urinish: ${a.attempt_number}/2\n🏅 Natija: ${score}/100 ball\n\n${tier.text}`,
         { reply_markup: { inline_keyboard: [[{ text: "📊 Tahlil va javoblarni ko'rish", web_app: { url: `${PUBLIC_URL}/?screen=review&attempt=${attemptId}` } }]] } }
       ).catch(() => {});
     }
@@ -159,7 +158,7 @@ function createApp(bot, checkMembership) {
   app.post('/api/attempt/:id/finish', auth, async (req, res) => {
     const r = await pool.query('SELECT * FROM attempts WHERE id=$1', [req.params.id]);
     if (r.rowCount === 0) return res.status(404).json({ error: 'not_found' });
-    if (r.rows[0].telegram_user_id !== req.tgUser.id) return res.status(403).json({ error: 'forbidden' });
+    if (Number(r.rows[0].telegram_user_id) !== Number(req.tgUser.id)) return res.status(403).json({ error: 'forbidden' });
     const a = await finishAttempt(req.params.id, bot.telegram);
     const tier = tierMessage(a.score);
     res.json({ score: a.score, tierText: tier.text });
@@ -175,7 +174,7 @@ function createApp(bot, checkMembership) {
     );
     if (r.rowCount === 0) return res.status(404).json({ error: 'not_found' });
     const a = r.rows[0];
-    if (a.telegram_user_id !== user.id && user.id !== ADMIN_ID) return res.status(403).json({ error: 'forbidden' });
+    if (Number(a.telegram_user_id) !== Number(user.id) && user.id !== ADMIN_ID) return res.status(403).json({ error: 'forbidden' });
     if (a.status !== 'finished') return res.status(400).json({ error: 'not_finished' });
     res.json({
       title: a.title,
