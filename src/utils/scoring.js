@@ -1,15 +1,17 @@
-function computeScore(test, answersMap) {
+function computeResult(test, answersMap) {
   let correct = 0;
   test.questions.forEach(q => {
     const given = answersMap[String(q.number)];
     if (given && given === q.correctLetter) correct++;
   });
-  return correct * 2; // 50 savol x 2 ball = 100
+  const total = test.questions.length;
+  const score = correct * 2;
+  return { correct, total, score };
 }
 
 function tierMessage(score) {
   if (score < 60) {
-    return { tier: null, text: "Afsuski, siz ushbu urinishda toifa ololmadingiz. 😔" };
+    return { tier: null, text: "Afsuski, siz ushbu urinishda toifa ololmadingiz. 😔\nYana harakat qiling, albatta uddalaysiz!" };
   }
   if (score < 70) {
     return { tier: '2-toifa', text: "Tabriklaymiz! Siz 2-toifaga o'tishingiz mumkin. 🎉" };
@@ -23,4 +25,4 @@ function tierMessage(score) {
   return { tier: 'Oliy toifa', text: "Tabriklaymiz! Siz OLIY toifadagi natijaga erishdingiz va 70% ustama olish huquqiga ega bo'ldingiz! 🏆🔥" };
 }
 
-module.exports = { computeScore, tierMessage };
+module.exports = { computeResult, tierMessage };
