@@ -36,6 +36,44 @@ function extractCorrectLetter(answerHtml, options) {
   return found ? found.letter : null;
 }
 
+const LETTERS = ['A', 'B', 'C', 'D'];
+
+function parseQuestionChunk(chunk, num) {
+  const optIdx = chunk.indexOf('🔷');
+  if (optIdx === -1) throw new Error(`${num}-savolda variantlar (🔷) topilmadi`);
+  const headerRaw = chunk.slice(0, optIdx).trim();
+  const header = applyMarkdown(cleanHeader(headerRaw));
+  const rest = chunk.slice(optIdx);
+  const optionParts = rest.split('🔷').filter(s => s.trim().length > 0);
+  if (optionParts.length < 4) throw new Error(`${num}-savolda 4 ta variant bo'lishi kerak, topildi: ${optionParts.length}`);
+
+  const lastRaw = optionParts[3];
+  const ansIdx = lastRaw.indexOf('✅');
+  if (ansIdx === -1) throw new Error(`${num}-savolda javob (✅) topilmadi`);
+  const optionDText = lastRaw.slice(0, ansIdx);
+  const tail = lastRaw.slice(ansIdx + 1);
+  const explainIdx = tail.indexOf('⚠');
+  const answerText = explainIdx === -1 ? tail : tail.slice(0, explainIdx);
+  const explanationHtml = explainIdx === -1 ? '' : tail.slice(explainIdx + 1).trim();
+
+  const optionTexts = [optionParts[0], optionParts[1], optionParts[2], optionDText];
+  const options = optionTexts.map((t, i) => ({
+    letter: LETTERS[i],
+    html: applyMarkdown(t.replace(/^\s*[A-D][).]?\s*/, '').trim()),
+  }));
+
+  const correctLetter = extractCorrectLetter(answerText, options);
+  if (!correctLetter) throw new Error(`${num}-savolda to'g'ri javobni aniqlab bo'lmadi: "${stripTags(answerText).slice(0, 50)}"`);
+
+  return {
+    number: num,
+    html: header,
+    options,
+    correctLetter,
+    explanationHtml: explanationHtml ? applyMarkdown(explanationHtml) : null,
+  };
+}
+
 function parseTest(rawHtml) {
   const text = stripVS(rawHtml);
 
@@ -56,44 +94,7 @@ function parseTest(rawHtml) {
     throw new Error(`Savollar soni 50 bo'lishi kerak, topildi: ${rawChunks.length}`);
   }
 
-  const letters = ['A', 'B', 'C', 'D'];
-
-  const questions = rawChunks.map((chunk, idx) => {
-    const num = idx + 1;
-    const optIdx = chunk.indexOf('🔷');
-    if (optIdx === -1) throw new Error(`${num}-savolda variantlar (🔷) topilmadi`);
-    const headerRaw = chunk.slice(0, optIdx).trim();
-    const header = applyMarkdown(cleanHeader(headerRaw));
-    const rest = chunk.slice(optIdx);
-    const optionParts = rest.split('🔷').filter(s => s.trim().length > 0);
-    if (optionParts.length < 4) throw new Error(`${num}-savolda 4 ta variant bo'lishi kerak, topildi: ${optionParts.length}`);
-
-    const lastRaw = optionParts[3];
-    const ansIdx = lastRaw.indexOf('✅');
-    if (ansIdx === -1) throw new Error(`${num}-savolda javob (✅) topilmadi`);
-    const optionDText = lastRaw.slice(0, ansIdx);
-    let tail = lastRaw.slice(ansIdx + 1);
-    const explainIdx = tail.indexOf('⚠');
-    let answerText = explainIdx === -1 ? tail : tail.slice(0, explainIdx);
-    let explanationHtml = explainIdx === -1 ? '' : tail.slice(explainIdx + 1).trim();
-
-    const optionTexts = [optionParts[0], optionParts[1], optionParts[2], optionDText];
-    const options = optionTexts.map((t, i) => ({
-      letter: letters[i],
-      html: applyMarkdown(t.replace(/^\s*[A-D][).]?\s*/, '').trim()),
-    }));
-
-    const correctLetter = extractCorrectLetter(answerText, options);
-    if (!correctLetter) throw new Error(`${num}-savolda to'g'ri javobni aniqlab bo'lmadi: "${stripTags(answerText).slice(0, 50)}"`);
-
-    return {
-      number: num,
-      html: header,
-      options,
-      correctLetter,
-      explanationHtml: explanationHtml ? applyMarkdown(explanationHtml) : null,
-    };
-  });
+  const questions = rawChunks.map((chunk, idx) => parseQuestionChunk(chunk, idx + 1));
 
   return {
     textA: { html: wrapParagraphs(applyMarkdown(textA)), range: [1, 5] },
@@ -102,4 +103,38 @@ function parseTest(rawHtml) {
   };
 }
 
-module.exports = { parseTest };
+// Tahrirlash uchun: bitta yoki bir nechta savol va/yoki matn bloki
+function parseEditMessage(rawHtml) {
+  const text = stripVS(rawHtml);
+  const result = { questions: [], texts: [] };
+
+  const blockRegex = /([^\n‼]*)‼([\s\S]*?)‼/g;
+  let m;
+  while ((m = blockRegex.exec(text)) !== null) {
+    const label = (m[1] || '').toLowerCase();
+    let which = null;
+    if (/\b1\b|ilmiy/.test(label)) which = 'A';
+    else if (/\b2\b|badiiy/.test(label)) which = 'B';
+    if (!which) {
+      throw new Error("Matn bloki oldiga qatorga '1-matn' (ilmiy) yoki '2-matn' (badiiy) deb yozing");
+    }
+    result.texts.push({ which, html: wrapParagraphs(applyMarkdown(m[2].trim())) });
+  }
+
+  const stream = text.replace(/([^\n‼]*)‼([\s\S]*?)‼/g, '\n');
+  const chunks = stream.split('⁉').slice(1);
+  for (const chunk of chunks) {
+    const numMatch = chunk.match(/^\s*(\d+)/);
+    if (!numMatch) throw new Error("Savol raqami topilmadi. Masalan: ⁉️5-savol. ...");
+    const num = Number(numMatch[1]);
+    if (num < 1 || num > 50) throw new Error(`Savol raqami 1 dan 50 gacha bo'lishi kerak (kiritildi: ${num})`);
+    result.questions.push(parseQuestionChunk(chunk, num));
+  }
+
+  if (result.questions.length === 0 && result.texts.length === 0) {
+    throw new Error("Savol (⁉️) ham, matn (‼️) ham topilmadi");
+  }
+  return result;
+}
+
+module.exports = { parseTest, parseEditMessage };
