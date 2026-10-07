@@ -20,19 +20,20 @@ body { margin:0; font-family: -apple-system, Roboto, sans-serif; background: var
 .finish-btn-small { background:#e53935; color:#fff; border:none; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600; }
 .progress { font-size:13px; color: #888; margin:10px 0 4px 0; font-weight:500; }
 
+/* Matn: oddiy uzun matn, quti ham, ichki scroll ham yo'q */
 .text-box {
   background: transparent;
-  border-left: 3px solid var(--btn);
-  padding: 4px 0 4px 14px;
-  margin-bottom: 18px;
-  font-size: 14px;
-  line-height: 1.75;
-  color: #333;
+  border: none;
+  padding: 0;
+  margin: 8px 0 22px 0;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #222;
   font-weight: 400;
-  max-height: 260px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
-.text-box p { margin: 0 0 12px 0; }
+.text-box p { margin: 0 0 14px 0; }
 .text-box p:last-child { margin-bottom: 0; }
 
 .q-text {
